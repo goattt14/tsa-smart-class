@@ -18,76 +18,19 @@ export default function App() {
   return (
     <Routes>
       <Route path="/sign-in" element={<LoginPage />} />
-
-      <Route
-        element={
-          <RequireAuth>
-            <AppShell />
-          </RequireAuth>
-        }
-      >
+      <Route element={<RequireAuth><AppShell /></RequireAuth>}>
         <Route index element={<DashboardHome />} />
         <Route path="notifications" element={<NotificationsPage />} />
-
-        <Route
-          path="today"
-          element={
-            <RequirePermission permission="selfstudy.session.own">
-              <TodayPage />
-            </RequirePermission>
-          }
-        />
-
-        <Route
-          path="attendance"
-          element={
-            <RequirePermission permission="attendance.mark">
-              <AttendancePage />
-            </RequirePermission>
-          }
-        />
-
-        <Route
-          path="tests"
-          element={
-            <RequirePermission permission="tests.read">
-              <TestsPage />
-            </RequirePermission>
-          }
-        />
-
-        <Route
-          path="tests/:testId/attempt/:attemptId"
-          element={
-            <RequirePermission permission="tests.read">
-              <TestAttemptPage />
-            </RequirePermission>
-          }
-        />
-
-        <Route
-          path="materials"
-          element={
-            <RequirePermission permission="materials.read">
-              <MaterialsPage />
-            </RequirePermission>
-          }
-        />
-
-        <Route
-          path="viva"
-          element={
-            <RequirePermission permission="viva.conduct">
-              <VivaPage />
-            </RequirePermission>
-          }
-        />
-
+        <Route path="today" element={<RequirePermission permission="selfstudy.session.own"><TodayPage /></RequirePermission>} />
+        <Route path="attendance" element={<RequirePermission permission="attendance.mark"><AttendancePage /></RequirePermission>} />
+        <Route path="tests" element={<RequirePermission permission="tests.read"><TestsPage /></RequirePermission>} />
+        <Route path="tests/:testId/attempt/:attemptId" element={<RequirePermission permission="tests.read"><TestAttemptPage /></RequirePermission>} />
+        <Route path="materials" element={<RequirePermission permission="materials.read"><MaterialsPage /></RequirePermission>} />
+        <Route path="viva" element={<RequirePermission permission="viva.conduct"><VivaPage /></RequirePermission>} />
         <Route path="fees" element={<FeesPage />} />
         <Route path="system" element={<SystemStatus />} />
         <Route path="*" element={<NotFound />} />
       </Route>
-
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

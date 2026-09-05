@@ -1,0 +1,37 @@
+# Local development only. Production uses Neon (Postgres) + Cloudflare R2 / S3.
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: tsa-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: tsa
+      POSTGRES_PASSWORD: tsa_dev_password
+      POSTGRES_DB: tsa_dev
+    ports:
+      - '5432:5432'
+    volumes:
+      - tsa_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U tsa -d tsa_dev']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: tsa-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: tsa_minio
+      MINIO_ROOT_PASSWORD: tsa_minio_password
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    volumes:
+      - tsa_miniodata:/data
+
+volumes:
+  tsa_pgdata:
+  tsa_miniodata:

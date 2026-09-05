@@ -1,0 +1,13 @@
+﻿node_modules/
+.env
+.env.*
+!.env.example
+apps/**/.env
+apps/**/.env.*
+!.env.example
+dist/
+.vite/
+.DS_Store
+npm-debug.log*
+coverage/
+*.log

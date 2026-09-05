@@ -1,0 +1,77 @@
+# Render Blueprint — backend API only. The frontend is deployed on Vercel.
+# Pick the region closest to your Neon region (Mumbai users: singapore).
+services:
+  - type: web
+    name: tsa-api
+    runtime: node
+    plan: free
+    region: singapore
+    rootDir: .
+    branch: main
+    healthCheckPath: /api/v1/health
+    autoDeploy: true
+    # --include=dev is required: prisma and typescript are devDependencies and
+    # Render sets NODE_ENV=production, which some npm versions read as --omit=dev.
+    buildCommand: npm ci --include=dev && npm run build --workspace apps/api && npm run db:deploy --workspace apps/api
+    startCommand: npm run start --workspace apps/api
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "20.11.1"
+      - key: TZ
+        value: Asia/Kolkata
+      - key: LOG_LEVEL
+        value: info
+      # ---- required secrets: set these in the Render dashboard ----
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: COOKIE_SECRET
+        generateValue: true
+      - key: CORS_ORIGINS
+        sync: false
+      - key: APP_WEB_URL
+        sync: false
+      # ---- AI layer ----
+      - key: AI_PROVIDER
+        value: mock
+      - key: AI_TEXT_MODEL
+        sync: false
+      - key: AI_FAST_MODEL
+        sync: false
+      - key: AI_EMBEDDING_MODEL
+        sync: false
+      - key: AI_EMBEDDING_DIM
+        value: "1536"
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: GOOGLE_API_KEY
+        sync: false
+      # ---- storage ----
+      - key: STORAGE_DRIVER
+        value: local
+      - key: S3_ENDPOINT
+        sync: false
+      - key: S3_REGION
+        sync: false
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      # ---- notifications ----
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        sync: false

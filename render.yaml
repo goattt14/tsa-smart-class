@@ -18,7 +18,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: NODE_VERSION
-        value: "20.11.1"
+        value: "20.19.0"
       - key: TZ
         value: Asia/Kolkata
       - key: LOG_LEVEL

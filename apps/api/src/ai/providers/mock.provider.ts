@@ -59,6 +59,10 @@ export class MockProvider implements AiProvider {
       });
     }
 
+         if (request.feature === 'VIVA_QUESTION') {
+      return this.vivaQuestionJson(prompt);
+    }
+
     if (request.feature === 'TASK_GENERATION') {
       const count = Number(/questionCount"?\s*[:=]\s*(\d+)/.exec(prompt)?.[1] ?? 5);
 
@@ -89,6 +93,44 @@ export class MockProvider implements AiProvider {
     }
 
     return JSON.stringify({ mock: true, note: 'No mock shape defined for this feature.' });
+  }
+
+    private vivaQuestionJson(prompt: string): string {
+    const subject = /^Subject:\s*(.+)$/m.exec(prompt)?.[1]?.trim() ?? 'this subject';
+    const isFollowUp = prompt.includes('This turn is a follow-up');
+
+    const passageMatch = /\[1\](?:\s—[^\n]*)?\n([\s\S]{0,160})/.exec(prompt);
+    const snippet = passageMatch?.[1]
+      ?.replace(/\s+/g, ' ')
+      .trim()
+      .replace(/[.,;:]+$/, '');
+
+    const bank = isFollowUp
+      ? [
+          'Can you go a step deeper on that — why does that happen, specifically?',
+          'What would change in your answer if one of those conditions were different?',
+          'How would you justify that to someone who disagreed with you?',
+        ]
+      : [
+          snippet
+            ? `Based on the material on "${snippet}...", can you explain the main idea in your own words?`
+            : `Can you explain the key idea from this part of ${subject} in your own words?`,
+          `Walk me through how you would approach a typical problem on this topic in ${subject}.`,
+          `What is the most important thing to remember about this part of ${subject}, and why?`,
+        ];
+
+    const seed = crypto.createHash('sha256').update(prompt).digest()[0] ?? 0;
+    const body = `[MOCK] ${bank[seed % bank.length]}`;
+
+    return JSON.stringify({
+      body,
+      expectedPoints: [
+        'Mentions the core concept from the source material',
+        "Explains it in the student's own words, not a verbatim recall",
+      ],
+      probesConcept: 'core understanding',
+      sourceChunkIndexes: [1],
+    });
   }
 
   private proseFor(prompt: string): string {

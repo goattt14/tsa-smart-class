@@ -10,6 +10,7 @@
  */
 import { PrismaClient, Role, StaffType, Gender, ParentRelation } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import crypto from 'node:crypto';
 import { PERMISSIONS, ROLE_MATRIX } from '../src/modules/auth/permissions.catalog';
 
 const prisma = new PrismaClient();
@@ -18,6 +19,24 @@ const INSTITUTE_CODE = 'TSA';
 const DEMO_PASSWORD = process.env.DEMO_PASSWORD ?? 'Tsa@Demo2026';
 const SEED_DEMO = process.env.SEED_DEMO !== 'false';
 const ACADEMIC_YEAR = '2025-26';
+
+function mockEmbedding(text: string): number[] {
+  const dimension = 1536;
+  const baseSeed = crypto.createHash('sha256').update('tsa-mock-embedding-base').digest();
+  const seed = crypto.createHash('sha256').update(text).digest();
+  const vector = new Array<number>(dimension);
+
+  for (let i = 0; i < dimension; i += 1) {
+    const baseByte = baseSeed[i % baseSeed.length] ?? 0;
+    const base = (baseByte / 255) * 2 - 1;
+    const jitterByte = seed[i % seed.length] ?? 0;
+    const jitter = ((jitterByte / 255) * 2 - 1) * Math.cos(i * 0.017 + jitterByte);
+    vector[i] = base + jitter * 0.15;
+  }
+
+  const norm = Math.sqrt(vector.reduce((sum, v) => sum + v * v, 0)) || 1;
+  return vector.map((v) => v / norm);
+}
 
 /** Times of day are stored as minutes from midnight. */
 const hm = (h: number, m = 0): number => h * 60 + m;
@@ -359,6 +378,8 @@ async function main(): Promise<void> {
     },
   ];
 
+  const teacherRefByCode = new Map<string, { userId: string; teacherProfileId: string }>();
+
   for (const spec of teacherSpecs) {
     const userId = await upsertUser({
       email: spec.email,
@@ -381,6 +402,8 @@ async function main(): Promise<void> {
       select: { id: true },
     });
 
+    teacherRefByCode.set(spec.subjectCode, { userId, teacherProfileId: teacher.id });
+
     const subjectId = subjects.get(spec.subjectCode);
     if (!subjectId) continue;
 
@@ -397,7 +420,71 @@ async function main(): Promise<void> {
       });
     }
   }
-  console.log(`Teachers ready: ${teacherSpecs.length}`);
+    console.log(`Teachers ready: ${teacherSpecs.length}`);
+
+  const materialSpecs = [
+    {
+      subjectCode: 'PHY',
+      title: "Newton's Laws of Motion",
+      chunks: [
+        "Newton's First Law: an object at rest stays at rest, and an object in motion stays in motion at constant velocity, unless acted on by a net external force. This tendency to resist a change in motion is called inertia, and it scales with an object's mass — a heavier object needs more force to produce the same acceleration.",
+        "Newton's Second Law: the net force on an object equals its mass times its acceleration, F = ma. For a fixed force, a smaller mass produces a larger acceleration and a larger mass produces a smaller one. Units matter: force in newtons, mass in kilograms, acceleration in metres per second squared.",
+        "Newton's Third Law: for every action there is an equal and opposite reaction. When object A exerts a force on object B, object B exerts a force of the same magnitude but opposite direction back on A. The two forces act on different objects, so they never cancel each other out, even though they are equal and opposite.",
+      ],
+    },
+    {
+      subjectCode: 'MATH',
+      title: 'Quadratic Equations',
+      chunks: [
+        'A quadratic equation has the standard form ax^2 + bx + c = 0, where a is not zero. One way to solve it is by factoring: rewrite the expression as a product of two binomials, then set each factor to zero to find the roots. For example, x^2 - 5x + 6 factors as (x - 2)(x - 3), giving roots x = 2 and x = 3.',
+        'The discriminant of a quadratic is b^2 - 4ac. Its sign tells you how many real roots the equation has without solving it fully: a positive discriminant means two distinct real roots, zero means exactly one repeated real root, and a negative discriminant means no real roots at all.',
+        'When a quadratic does not factor neatly, the quadratic formula solves it directly: x = (-b ± sqrt(b^2 - 4ac)) / 2a. This works for every quadratic equation, including the ones with irrational or complex roots, and it uses the same discriminant that determines how many real solutions exist.',
+      ],
+    },
+  ];
+
+  for (const spec of materialSpecs) {
+    const subjectId = subjects.get(spec.subjectCode);
+    const teacherRef = teacherRefByCode.get(spec.subjectCode);
+    if (!subjectId || !teacherRef) continue;
+
+    const existing = await prisma.studyMaterial.findFirst({
+      where: { subjectId, title: spec.title },
+      select: { id: true },
+    });
+    if (existing) continue;
+
+    const material = await prisma.studyMaterial.create({
+      data: {
+        subjectId,
+        teacherId: teacherRef.teacherProfileId,
+        uploadedById: teacherRef.userId,
+        title: spec.title,
+        type: 'TEXT',
+        rawText: spec.chunks.join('\n\n'),
+        visibility: 'INSTITUTE',
+        isCurriculumApproved: true,
+        ingestStatus: 'INDEXED',
+        indexedAt: new Date(),
+        chunkCount: spec.chunks.length,
+      },
+      select: { id: true },
+    });
+
+    for (const [index, content] of spec.chunks.entries()) {
+      await prisma.materialChunk.create({
+        data: {
+          materialId: material.id,
+          chunkIndex: index,
+          content,
+          tokenCount: Math.ceil(content.length / 4),
+          embeddingJson: mockEmbedding(content),
+          embeddingModel: 'mock-embed-1',
+        },
+      });
+    }
+  }
+  console.log(`Study material ready: ${materialSpecs.length} subjects indexed`);
 
   // --- students ------------------------------------------------------------
   const studentSpecs = [

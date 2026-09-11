@@ -109,17 +109,22 @@ export class MockProvider implements AiProvider {
    * retrieval quality under the mock provider tells you nothing about real
    * retrieval quality.
    */
-  async embed(request: EmbeddingRequest): Promise<EmbeddingResponse> {
+    async embed(request: EmbeddingRequest): Promise<EmbeddingResponse> {
     const started = Date.now();
     const dimension = 1536;
+
+    const baseSeed = crypto.createHash('sha256').update('tsa-mock-embedding-base').digest();
 
     const vectors = request.input.map((text) => {
       const seed = crypto.createHash('sha256').update(text).digest();
       const vector = new Array<number>(dimension);
 
       for (let i = 0; i < dimension; i += 1) {
-        const byte = seed[i % seed.length] ?? 0;
-        vector[i] = ((byte / 255) * 2 - 1) * Math.cos(i * 0.017 + byte);
+        const baseByte = baseSeed[i % baseSeed.length] ?? 0;
+        const base = (baseByte / 255) * 2 - 1;
+        const jitterByte = seed[i % seed.length] ?? 0;
+        const jitter = ((jitterByte / 255) * 2 - 1) * Math.cos(i * 0.017 + jitterByte);
+        vector[i] = base + jitter * 0.15;
       }
 
       const norm = Math.sqrt(vector.reduce((sum, v) => sum + v * v, 0)) || 1;

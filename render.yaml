@@ -12,7 +12,7 @@ services:
     autoDeploy: true
     # --include=dev is required: prisma and typescript are devDependencies and
     # Render sets NODE_ENV=production, which some npm versions read as --omit=dev.
-    buildCommand: npm ci --include=dev && npm run build --workspace apps/api && npm run db:deploy --workspace apps/api
+        buildCommand: npm ci --include=dev && npm run build --workspace apps/api && npm run db:deploy --workspace apps/api && npm run db:seed --workspace apps/api
     startCommand: npm run start --workspace apps/api
     envVars:
       - key: NODE_ENV

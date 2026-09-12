@@ -35,7 +35,7 @@ const envSchema = z.object({
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(300),
   AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(10),
 
-  AI_PROVIDER: z.enum(['openai', 'anthropic', 'gemini', 'local', 'mock']).default('mock'),
+  AI_PROVIDER: z.enum(['openai', 'anthropic', 'gemini', 'local', 'mock']).default('openai'),
   AI_TEXT_MODEL: z.string().optional(),
   AI_FAST_MODEL: z.string().optional(),
   AI_EMBEDDING_MODEL: z.string().optional(),

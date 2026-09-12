@@ -273,8 +273,7 @@ export interface VivaSessionSummary {
   status: string;
   durationMin: number;
   startedAt: string | null;
-  finishedAt: string | null;
-  createdAt: string;
+  endedAt: string | null;
   subject: { name: string; colorHex: string | null } | null;
   topic: { name: string } | null;
 }

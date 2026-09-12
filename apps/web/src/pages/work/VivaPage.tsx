@@ -465,7 +465,8 @@ export function VivaPage() {
                 <div className="min-w-0">
                   <p className="truncate text-[14px] font-medium text-ink">{item.subject?.name ?? 'Subject'}</p>
                   <p className="text-[12.5px] text-ink-muted">
-                    {item.durationMin} min · {new Date(item.createdAt).toLocaleDateString()}
+                    {item.durationMin} min ·{' '}
+                    {item.startedAt ? new Date(item.startedAt).toLocaleDateString() : 'Not started'}
                   </p>
                 </div>
                 <Badge

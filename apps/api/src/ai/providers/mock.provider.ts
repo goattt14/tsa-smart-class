@@ -78,19 +78,6 @@ export class MockProvider implements AiProvider {
     return JSON.stringify({ mock: true, note: 'No mock shape defined for this feature.' });
   }
 
-  /**
-   * A response-aware mock evaluator.
-   *
-   * The mock provider cannot judge whether an answer is actually correct —
-   * it has no understanding of the subject. What it can and must do is stop
-   * short of the earlier bug: returning the identical "6/10, partially
-   * correct" verdict for every submission regardless of content, which meant
-   * gibberish scored the same as a real attempt. This checks for the one
-   * thing a mock legitimately can detect without understanding — whether
-   * anything resembling a real answer was written at all — and is honest in
-   * the mockNotice that a genuine correctness judgement needs a real
-   * provider.
-   */
   private evaluationJson(prompt: string, isViva: boolean): string {
     const maxScoreMatch = /Out of:\s*(\d+)/.exec(prompt);
     const maxScore = maxScoreMatch?.[1] ? Number(maxScoreMatch[1]) : 10;
@@ -160,11 +147,14 @@ export class MockProvider implements AiProvider {
     const subject = /^Subject:\s*(.+)$/m.exec(prompt)?.[1]?.trim() ?? 'this subject';
     const isFollowUp = prompt.includes('This turn is a follow-up');
 
-    const passageMatch = /\[1\](?:\s—[^\n]*)?\n([\s\S]{0,160})/.exec(prompt);
-    const snippet = passageMatch?.[1]
-      ?.replace(/\s+/g, ' ')
-      .trim()
-      .replace(/[.,;:]+$/, '');
+    const passages = [...prompt.matchAll(/\[(\d+)\](?:\s—[^\n]*)?\n([\s\S]{0,220}?)(?=\n\[\d+\]|\n\n|$)/g)]
+      .map((m) => m[2]?.replace(/\s+/g, ' ').trim().replace(/[.,;:]+$/, ''))
+      .filter((text): text is string => Boolean(text));
+
+    const askedBlock = /Already asked, do not repeat these:\n([\s\S]*?)(?:\n\n|$)/.exec(prompt);
+    const askedCount = askedBlock?.[1] ? askedBlock[1].split('\n').filter((l) => l.trim()).length : 0;
+
+    const snippet = passages.length > 0 ? passages[askedCount % passages.length] : undefined;
 
     const bank = isFollowUp
       ? [
@@ -184,8 +174,7 @@ export class MockProvider implements AiProvider {
             : `What is the most important thing to remember about this part of ${subject}, and why?`,
         ];
 
-    const seed = crypto.createHash('sha256').update(prompt).digest()[0] ?? 0;
-    const body = `[MOCK] ${bank[seed % bank.length]}`;
+    const body = `[MOCK] ${bank[askedCount % bank.length]}`;
 
     return JSON.stringify({
       body,
@@ -207,15 +196,6 @@ export class MockProvider implements AiProvider {
     ].join('\n');
   }
 
-  /**
-   * Deterministic pseudo-embeddings.
-   *
-   * Hashing the input means identical text always yields an identical vector
-   * and similar text does not, so retrieval plumbing can be exercised
-   * end-to-end. The vectors carry no semantic meaning whatsoever, and
-   * retrieval quality under the mock provider tells you nothing about real
-   * retrieval quality.
-   */
   async embed(request: EmbeddingRequest): Promise<EmbeddingResponse> {
     const started = Date.now();
     const dimension = 1536;

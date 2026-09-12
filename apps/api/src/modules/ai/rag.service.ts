@@ -269,11 +269,30 @@ export async function retrievePassages(
 }
 
 export async function reindexPending(instituteId: string, limit = 20) {
+  const currentEmbeddingModel =
+    env.AI_EMBEDDING_MODEL ?? 'text-embedding-3-small';
+
   const pending = await prisma.studyMaterial.findMany({
     where: {
       deletedAt: null,
       subject: { instituteId },
-      ingestStatus: { in: [IngestStatus.PENDING, IngestStatus.FAILED] },
+      OR: [
+        {
+          ingestStatus: {
+            in: [IngestStatus.PENDING, IngestStatus.FAILED],
+          },
+        },
+        {
+          chunks: {
+            some: {
+              OR: [
+                { embeddingModel: null },
+                { embeddingModel: { not: currentEmbeddingModel } },
+              ],
+            },
+          },
+        },
+      ],
     },
     take: limit,
     select: { id: true, title: true },

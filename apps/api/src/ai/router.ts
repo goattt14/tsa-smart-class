@@ -274,13 +274,26 @@ export async function embed(
 ): Promise<EmbeddingResponse> {
   await assertWithinBudget();
 
-  const chain = providerChain().filter((name) => {
+const isRealVivaEmbedding =
+  request.feature === AiFeature.EMBEDDING;
+
+  const chain = providerChain()
+  .filter((name) => {
     try {
       return build(name).supportsEmbedding;
     } catch {
       return false;
     }
-  });
+  })
+  .filter((name) => name !== AiProviderName.MOCK);
+
+if (chain.length === 0) {
+  throw new AiError(
+    'A real embedding provider is required. Configure the AI provider and API key.',
+    'NO_REAL_EMBEDDING_PROVIDER',
+    false,
+  );
+}
 
   let lastError: AiError | null = null;
 

@@ -422,69 +422,230 @@ async function main(): Promise<void> {
   }
     console.log(`Teachers ready: ${teacherSpecs.length}`);
 
-  const materialSpecs = [
+    const materialSpecs = [
     {
       subjectCode: 'PHY',
-      title: "Newton's Laws of Motion",
-      chunks: [
-        "Newton's First Law: an object at rest stays at rest, and an object in motion stays in motion at constant velocity, unless acted on by a net external force. This tendency to resist a change in motion is called inertia, and it scales with an object's mass — a heavier object needs more force to produce the same acceleration.",
-        "Newton's Second Law: the net force on an object equals its mass times its acceleration, F = ma. For a fixed force, a smaller mass produces a larger acceleration and a larger mass produces a smaller one. Units matter: force in newtons, mass in kilograms, acceleration in metres per second squared.",
-        "Newton's Third Law: for every action there is an equal and opposite reaction. When object A exerts a force on object B, object B exerts a force of the same magnitude but opposite direction back on A. The two forces act on different objects, so they never cancel each other out, even though they are equal and opposite.",
+      materials: [
+        {
+          title: "Newton's Laws of Motion",
+          chunks: [
+            "Newton's First Law: an object at rest stays at rest, and an object in motion stays in motion at constant velocity, unless acted on by a net external force. This tendency to resist a change in motion is called inertia, and it scales with an object's mass — a heavier object needs more force to produce the same acceleration.",
+            "Newton's Second Law: the net force on an object equals its mass times its acceleration, F = ma. For a fixed force, a smaller mass produces a larger acceleration and a larger mass produces a smaller one. Units matter: force in newtons, mass in kilograms, acceleration in metres per second squared.",
+            "Newton's Third Law: for every action there is an equal and opposite reaction. When object A exerts a force on object B, object B exerts a force of the same magnitude but opposite direction back on A. The two forces act on different objects, so they never cancel each other out, even though they are equal and opposite.",
+          ],
+        },
+        {
+          title: 'Light: Reflection and Refraction',
+          chunks: [
+            'The laws of reflection state that the angle of incidence equals the angle of reflection, and the incident ray, reflected ray, and normal all lie in the same plane. A plane mirror forms an image that is virtual, erect, and the same size as the object, laterally inverted and as far behind the mirror as the object is in front.',
+            'Refraction is the bending of light as it passes from one medium into another of different optical density, caused by a change in speed. Light bends towards the normal when entering a denser medium and away from the normal when entering a rarer one; this is described quantitatively by the refractive index.',
+          ],
+        },
+        {
+          title: 'Electricity and Magnetism',
+          chunks: [
+            "Ohm's Law states that the current through a conductor is directly proportional to the potential difference across it, provided temperature stays constant: V = IR. Resistance depends on the material, length, and cross-sectional area of the conductor — longer, thinner wires have higher resistance.",
+            'A current-carrying conductor produces a magnetic field around it, which is the basis of electromagnets. The direction of this field can be found using the right-hand thumb rule: if the thumb points in the direction of conventional current, the curled fingers show the direction of the magnetic field lines.',
+          ],
+        },
+        {
+          title: 'Work, Energy and Gravitation',
+          chunks: [
+            "The work-energy theorem states that the work done by the net force on an object equals its change in kinetic energy. Kinetic energy is given by half of mass times velocity squared, and work is force times displacement in the direction of the force.",
+            "Newton's Universal Law of Gravitation states that every object attracts every other object with a force proportional to the product of their masses and inversely proportional to the square of the distance between them. This same law explains both an apple falling to the ground and the Moon orbiting the Earth.",
+            'The law of conservation of momentum states that the total momentum of an isolated system remains constant if no external force acts on it. In a collision between two objects, the total momentum before the collision equals the total momentum after, even though the objects may exchange momentum between them.',
+          ],
+        },
       ],
     },
     {
       subjectCode: 'MATH',
-      title: 'Quadratic Equations',
-      chunks: [
-        'A quadratic equation has the standard form ax^2 + bx + c = 0, where a is not zero. One way to solve it is by factoring: rewrite the expression as a product of two binomials, then set each factor to zero to find the roots. For example, x^2 - 5x + 6 factors as (x - 2)(x - 3), giving roots x = 2 and x = 3.',
-        'The discriminant of a quadratic is b^2 - 4ac. Its sign tells you how many real roots the equation has without solving it fully: a positive discriminant means two distinct real roots, zero means exactly one repeated real root, and a negative discriminant means no real roots at all.',
-        'When a quadratic does not factor neatly, the quadratic formula solves it directly: x = (-b ± sqrt(b^2 - 4ac)) / 2a. This works for every quadratic equation, including the ones with irrational or complex roots, and it uses the same discriminant that determines how many real solutions exist.',
+      materials: [
+        {
+          title: 'Quadratic Equations',
+          chunks: [
+            'A quadratic equation has the standard form ax^2 + bx + c = 0, where a is not zero. One way to solve it is by factoring: rewrite the expression as a product of two binomials, then set each factor to zero to find the roots. For example, x^2 - 5x + 6 factors as (x - 2)(x - 3), giving roots x = 2 and x = 3.',
+            'The discriminant of a quadratic is b^2 - 4ac. Its sign tells you how many real roots the equation has without solving it fully: a positive discriminant means two distinct real roots, zero means exactly one repeated real root, and a negative discriminant means no real roots at all.',
+            'When a quadratic does not factor neatly, the quadratic formula solves it directly: x = (-b ± sqrt(b^2 - 4ac)) / 2a. This works for every quadratic equation, including the ones with irrational or complex roots, and it uses the same discriminant that determines how many real solutions exist.',
+          ],
+        },
+        {
+          title: 'Arithmetic Progressions and Polynomials',
+          chunks: [
+            'An arithmetic progression (AP) is a sequence where each term after the first is obtained by adding a fixed common difference d to the previous term. The nth term is a + (n-1)d, and the sum of the first n terms is n/2 times the sum of the first and last term.',
+            "A polynomial's zeroes are the values of x that make the polynomial equal to zero. For a quadratic polynomial, the sum of the zeroes equals -b/a and the product of the zeroes equals c/a, which connects the coefficients directly to the roots without needing to solve for them individually.",
+          ],
+        },
+        {
+          title: 'Trigonometry and Coordinate Geometry',
+          chunks: [
+            'In a right triangle, the trigonometric ratios relate an angle to the ratios of the sides: sine is opposite over hypotenuse, cosine is adjacent over hypotenuse, and tangent is opposite over adjacent. These ratios stay the same for a given angle regardless of the size of the triangle.',
+            "The Pythagoras theorem states that in a right-angled triangle, the square of the hypotenuse equals the sum of the squares of the other two sides. This only holds for right triangles and is used to find an unknown side when the other two are known.",
+            'The distance between two points (x1, y1) and (x2, y2) on a coordinate plane is found using the distance formula, which comes directly from the Pythagoras theorem: the square root of (x2-x1) squared plus (y2-y1) squared.',
+          ],
+        },
+        {
+          title: 'Mensuration and Statistics',
+          chunks: [
+            'The circumference of a circle is 2 times pi times the radius, and its area is pi times the radius squared. These formulas are used together in problems involving rings, sectors, and combinations of circular shapes with other figures.',
+            'The mean of a data set is the sum of all values divided by the number of values. The median is the middle value when the data is arranged in order, and the mode is the value that occurs most frequently — each describes the "centre" of the data differently and can give different answers for skewed data.',
+          ],
+        },
+      ],
+    },
+    {
+      subjectCode: 'CHEM',
+      materials: [
+        {
+          title: 'Chemical Reactions and Equations',
+          chunks: [
+            'A chemical equation must be balanced so that the number of atoms of each element is the same on both sides, in line with the law of conservation of mass. Balancing is done by adjusting coefficients in front of formulas, never by changing the formulas themselves.',
+            'In a combination reaction, two or more substances combine to form a single product, such as calcium oxide reacting with water to form calcium hydroxide. In a decomposition reaction, a single compound breaks down into two or more simpler substances, often needing heat, light, or electricity.',
+            'In a displacement reaction, a more reactive element displaces a less reactive one from its compound, such as iron displacing copper from copper sulphate solution. In a double displacement reaction, two compounds exchange ions, often producing an insoluble precipitate.',
+          ],
+        },
+        {
+          title: 'Acids, Bases and Salts',
+          chunks: [
+            'The pH scale measures how acidic or basic a solution is, running from 0 to 14. A pH below 7 is acidic, exactly 7 is neutral, and above 7 is basic; universal indicator changes colour across this range to give an approximate pH reading.',
+            'A salt is formed when an acid reacts with a base in a neutralisation reaction, along with water. Common salt, sodium chloride, is formed from hydrochloric acid and sodium hydroxide, and different salts have different everyday uses depending on their properties.',
+          ],
+        },
+        {
+          title: 'Metals and Non-metals',
+          chunks: [
+            'The reactivity series ranks metals by how readily they react, with potassium and sodium at the highly reactive end and gold and platinum at the least reactive end. A metal higher in the series can displace a metal lower in the series from its compound in solution.',
+            'Corrosion is the gradual destruction of a metal by reaction with substances in its environment, such as iron rusting when exposed to both oxygen and moisture. Rusting can be prevented by painting, oiling, galvanising, or otherwise keeping air and water away from the metal surface.',
+          ],
+        },
+        {
+          title: 'Carbon Compounds and the Periodic Table',
+          chunks: [
+            'Carbon forms covalent bonds by sharing electrons rather than transferring them, which lets it form long chains and rings with itself and other elements. This versatility, called catenation, is why carbon forms millions of compounds despite being just one element.',
+            'Elements in the periodic table are arranged in order of increasing atomic number, and elements in the same group share similar chemical properties because they have the same number of valence electrons. Moving across a period, atomic size generally decreases and metallic character decreases.',
+            'The mole is a unit for counting particles, defined so that one mole of any substance contains the same fixed number of particles (Avogadro\u2019s number). This lets chemists convert between the mass of a substance and the number of atoms or molecules it contains.',
+          ],
+        },
+      ],
+    },
+    {
+      subjectCode: 'BIO',
+      materials: [
+        {
+          title: 'Life Processes: Nutrition and Respiration',
+          chunks: [
+            'Autotrophic nutrition, seen in green plants, involves making food from simple inorganic substances using sunlight through photosynthesis. Heterotrophic nutrition, seen in animals, involves taking in complex organic food and breaking it down, as in human digestion.',
+            'Respiration is the process by which cells break down glucose to release energy, which can happen aerobically using oxygen or anaerobically without it. Aerobic respiration releases far more energy per glucose molecule than anaerobic respiration, which in humans produces lactic acid during vigorous exercise.',
+          ],
+        },
+        {
+          title: 'Life Processes: Transportation and Excretion',
+          chunks: [
+            "The human circulatory system uses the heart to pump blood through a double circulation: one loop to the lungs to pick up oxygen, and another to carry that oxygenated blood to the rest of the body. This double circulation keeps oxygenated and deoxygenated blood mostly separate, which is more efficient.",
+            'Excretion is the removal of metabolic waste products from the body, and in humans this is mainly carried out by the kidneys, which filter blood to remove urea and excess water as urine. The kidneys also help regulate the balance of water and salts in the body.',
+          ],
+        },
+        {
+          title: 'Control, Coordination and Reproduction',
+          chunks: [
+            'The nervous system coordinates rapid responses through neurons, which carry electrical impulses, while the endocrine system uses hormones carried in the blood for slower, longer-lasting control. A reflex action, like pulling a hand away from something hot, is a fast, automatic response that does not wait for the brain to fully process it first.',
+            'Reproduction can be asexual, producing offspring genetically identical to a single parent, or sexual, combining genetic material from two parents to produce variation. This variation produced by sexual reproduction is important for a species\u2019 ability to survive changing conditions over generations.',
+          ],
+        },
+        {
+          title: 'Heredity and the Environment',
+          chunks: [
+            "Mendel's experiments with pea plants showed that traits are inherited via discrete factors, now called genes, passed from both parents. A dominant trait shows up in the offspring even if only one parent contributes it, while a recessive trait only shows up if both parents contribute it.",
+            'An ecosystem consists of all the living organisms in an area interacting with each other and with the non-living components like soil, water, and air. Energy flows through an ecosystem via food chains, starting with producers like plants and moving through successive levels of consumers, with energy decreasing at each level.',
+          ],
+        },
+      ],
+    },
+    {
+      subjectCode: 'ENG',
+      materials: [
+        {
+          title: 'Grammar: Tenses and Voice',
+          chunks: [
+            'Tense shows when an action happens: past, present, or future, each with simple, continuous, perfect, and perfect continuous forms. Choosing the right tense depends on whether the action is a habit, happening right now, completed, or ongoing up to a point in time.',
+            "Active voice puts the subject first, doing the action, as in \u2018the teacher explained the lesson.\u2019 Passive voice puts the object of the action first, as in \u2018the lesson was explained by the teacher,\u2019 which is useful when the doer of the action is unknown or less important than the action itself.",
+          ],
+        },
+        {
+          title: 'Grammar: Speech and Agreement',
+          chunks: [
+            'Direct speech reports the exact words a person said, usually in quotation marks, while indirect (reported) speech conveys the same meaning without quoting directly, often shifting the tense backwards. For example, \u2018She said, \u201cI am tired\u201d\u2019 becomes \u2018She said that she was tired.\u2019',
+            "Subject-verb agreement means a singular subject takes a singular verb and a plural subject takes a plural verb, even when other words come between them. A common mistake is matching the verb to the nearest noun instead of the true subject of the sentence.",
+          ],
+        },
+        {
+          title: 'Figures of Speech and Composition',
+          chunks: [
+            "A simile compares two different things using \u2018like\u2019 or \u2018as,\u2019 such as \u2018brave as a lion,\u2019 while a metaphor makes the comparison directly by saying one thing is another, such as \u2018time is a thief.\u2019 Both are used to make descriptions more vivid than literal language would allow.",
+            'A formal letter follows a set structure: sender\u2019s address, date, receiver\u2019s address, a formal salutation, body paragraphs, and a formal closing. An essay similarly needs a clear introduction that states the main idea, body paragraphs that each develop one point, and a conclusion that ties the ideas together.',
+          ],
+        },
+        {
+          title: 'Reading and Punctuation',
+          chunks: [
+            'Effective reading comprehension involves first skimming a passage to get its general idea, then reading closely to answer specific questions, referring back to the text rather than relying on memory. Identifying the main idea of each paragraph makes it much easier to locate specific details afterwards.',
+            "Punctuation marks like commas, full stops, and semicolons control how a sentence is read and can change its meaning entirely, as in the difference between \u2018let\u2019s eat, grandma\u2019 and \u2018let\u2019s eat grandma.\u2019 A semicolon joins two closely related independent clauses without needing a conjunction like \u2018and\u2019 or \u2018but.\u2019",
+          ],
+        },
       ],
     },
   ];
 
-  for (const spec of materialSpecs) {
-    const subjectId = subjects.get(spec.subjectCode);
-    const teacherRef = teacherRefByCode.get(spec.subjectCode);
-    if (!subjectId || !teacherRef) continue;
+  for (const subjectSpec of materialSpecs) {
+    const subjectId = subjects.get(subjectSpec.subjectCode);
+    const teacherRef = teacherRefByCode.get(subjectSpec.subjectCode);
+    const uploadedById = teacherRef?.userId ?? adminUserId;
+    if (!subjectId) continue;
 
-    const existing = await prisma.studyMaterial.findFirst({
-      where: { subjectId, title: spec.title },
-      select: { id: true },
-    });
-    if (existing) continue;
-
-    const material = await prisma.studyMaterial.create({
-      data: {
-        subjectId,
-        teacherId: teacherRef.teacherProfileId,
-        uploadedById: teacherRef.userId,
-        title: spec.title,
-        type: 'TEXT',
-        rawText: spec.chunks.join('\n\n'),
-        visibility: 'INSTITUTE',
-        isCurriculumApproved: true,
-        ingestStatus: 'INDEXED',
-        indexedAt: new Date(),
-        chunkCount: spec.chunks.length,
-      },
-      select: { id: true },
-    });
-
-    for (const [index, content] of spec.chunks.entries()) {
-      await prisma.materialChunk.create({
-        data: {
-          materialId: material.id,
-          chunkIndex: index,
-          content,
-          tokenCount: Math.ceil(content.length / 4),
-          embeddingJson: mockEmbedding(content),
-          embeddingModel: 'mock-embed-1',
-        },
+    for (const spec of subjectSpec.materials) {
+      const existing = await prisma.studyMaterial.findFirst({
+        where: { subjectId, title: spec.title },
+        select: { id: true },
       });
+      if (existing) continue; // already seeded on a previous run
+
+      const material = await prisma.studyMaterial.create({
+        data: {
+          subjectId,
+          teacherId: teacherRef?.teacherProfileId,
+          uploadedById,
+          title: spec.title,
+          type: 'TEXT',
+          rawText: spec.chunks.join('\n\n'),
+          visibility: 'INSTITUTE',
+          isCurriculumApproved: true,
+          ingestStatus: 'INDEXED',
+          indexedAt: new Date(),
+          chunkCount: spec.chunks.length,
+        },
+        select: { id: true },
+      });
+
+      for (const [index, content] of spec.chunks.entries()) {
+        await prisma.materialChunk.create({
+          data: {
+            materialId: material.id,
+            chunkIndex: index,
+            content,
+            tokenCount: Math.ceil(content.length / 4),
+            embeddingJson: mockEmbedding(content),
+            embeddingModel: 'mock-embed-1',
+          },
+        });
+      }
     }
   }
-  console.log(`Study material ready: ${materialSpecs.length} subjects indexed`);
+  const totalMaterials = materialSpecs.reduce((sum, s) => sum + s.materials.length, 0);
+  const totalChunks = materialSpecs.reduce(
+    (sum, s) => sum + s.materials.reduce((inner, m) => inner + m.chunks.length, 0),
+    0,
+  );
+  console.log(`Study material ready: ${totalMaterials} materials, ${totalChunks} chunks across ${materialSpecs.length} subjects`);
 
   // --- students ------------------------------------------------------------
   const studentSpecs = [

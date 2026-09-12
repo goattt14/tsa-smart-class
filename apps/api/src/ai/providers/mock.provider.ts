@@ -143,36 +143,89 @@ export class MockProvider implements AiProvider {
     });
   }
 
-  private vivaQuestionJson(prompt: string): string {
-    const subject = /^Subject:\s*(.+)$/m.exec(prompt)?.[1]?.trim() ?? 'this subject';
-    const isFollowUp = prompt.includes('This turn is a follow-up');
+  private static readonly SUBJECT_QUESTIONS: Record<string, string[]> = {
+    Physics: [
+      "State Newton's second law of motion and write its mathematical form.",
+      'Why do you need a larger force to accelerate a heavier object by the same amount as a lighter one?',
+      "Two objects push against each other with equal force. Why doesn't the heavier one simply stay still?",
+      'A ray of light passes from air into water. Explain what happens to its path and why.',
+      'How can you tell that the current in a wire is directly proportional to the voltage across it?',
+      'What determines the direction of the magnetic field around a current-carrying wire?',
+      'A ball is thrown straight up and falls back down. Explain how its kinetic and potential energy change during the flight.',
+      'Why does the Moon stay in orbit around the Earth instead of flying off into space?',
+      'Two ice skaters push off from each other and glide apart. Explain what happens to their speeds using conservation of momentum.',
+      "Why does a plane mirror produce an image that looks 'flipped' left-to-right compared to the real object?",
+    ],
+    Mathematics: [
+      'Solve x^2 - 5x + 6 = 0 by factoring, and explain each step.',
+      'How does the discriminant tell you the number of real roots of a quadratic equation, without solving it?',
+      'When would you use the quadratic formula instead of trying to factor?',
+      'Find the 10th term of the arithmetic progression 3, 7, 11, 15, ... and explain your method.',
+      'If a quadratic polynomial has zeroes 2 and 3, what can you say about its coefficients?',
+      "In a right triangle, how do you decide which side is 'opposite' and which is 'adjacent' for a given angle?",
+      'State the Pythagoras theorem and explain when it applies.',
+      'How would you find the distance between the points (2, 3) and (5, 7)?',
+      'How do the area and circumference of a circle depend on its radius?',
+      'What is the difference between the mean, median, and mode of a data set, and when might they differ a lot?',
+    ],
+    Chemistry: [
+      'Why must a chemical equation be balanced before it is considered complete?',
+      "What's the difference between a combination reaction and a decomposition reaction? Give an example of each.",
+      'In the reaction between iron and copper sulphate solution, why does iron displace the copper?',
+      'What does a pH value below 7 tell you about a solution?',
+      'How is common salt formed from an acid and a base?',
+      'Why does gold barely react with anything, while sodium reacts violently even with water?',
+      'How does rusting happen, and what are two ways to prevent it?',
+      'Why can carbon form so many more compounds than most other elements?',
+      'What happens to atomic size as you move across a period in the periodic table, and why?',
+      'What is a mole, and why is it a useful unit in chemistry?',
+    ],
+    Biology: [
+      'What is the difference between autotrophic and heterotrophic nutrition? Give an example of each.',
+      'Why does aerobic respiration release more energy than anaerobic respiration?',
+      'Why does the human heart pump blood through two separate circulations instead of just one?',
+      'What role do the kidneys play in maintaining the balance of water and salts in the body?',
+      'How does a reflex action differ from a normal, thought-out response?',
+      'What is the key difference between asexual and sexual reproduction, and why does the variation from sexual reproduction matter?',
+      "According to Mendel's experiments, why can a trait 'skip' a generation and then reappear later?",
+      'What happens to the amount of energy available as you move up a food chain, and why?',
+      'How would you explain the relationship between the nervous system and the endocrine system in controlling the body?',
+      'Why is photosynthesis specifically dependent on sunlight rather than just any source of light or heat?',
+    ],
+    English: [
+      "Change this sentence to passive voice: 'The teacher explained the lesson.'",
+      "Convert to reported speech: She said, 'I am tired.'",
+      'Explain the difference between a simile and a metaphor, with an example of each.',
+      "Why does subject-verb agreement matter, and what's a common mistake people make with it?",
+      'What are the key parts of a formal letter, in order?',
+      'How would you structure a five-paragraph essay?',
+      'Why is it useful to skim a passage before reading it closely for detail?',
+      'Explain how a misplaced comma can completely change the meaning of a sentence.',
+      'What is the difference between simple past and past continuous tense? Give an example of each.',
+      'When would you use a semicolon instead of a full stop or a comma?',
+    ],
+  };
 
-    const passages = [...prompt.matchAll(/\[(\d+)\](?:\s—[^\n]*)?\n([\s\S]{0,220}?)(?=\n\[\d+\]|\n\n|$)/g)]
-      .map((m) => m[2]?.replace(/\s+/g, ' ').trim().replace(/[.,;:]+$/, ''))
-      .filter((text): text is string => Boolean(text));
+  private static readonly FALLBACK_QUESTIONS = [
+    'Explain the central idea of this topic in your own words.',
+    'Walk through a typical problem on this topic step by step.',
+    'What is the most common mistake students make on this topic, and how do you avoid it?',
+  ];
+
+  private vivaQuestionJson(prompt: string): string {
+    const subject = /^Subject:\s*(.+)$/m.exec(prompt)?.[1]?.trim() ?? '';
+    const isFollowUp = prompt.includes('This turn is a follow-up');
 
     const askedBlock = /Already asked, do not repeat these:\n([\s\S]*?)(?:\n\n|$)/.exec(prompt);
     const askedCount = askedBlock?.[1] ? askedBlock[1].split('\n').filter((l) => l.trim()).length : 0;
 
-    const snippet = passages.length > 0 ? passages[askedCount % passages.length] : undefined;
-
     const bank = isFollowUp
       ? [
-          'Can you go a step deeper on that — why does that happen, specifically?',
-          'What would change in your answer if one of those conditions were different?',
-          'How would you justify that to someone who disagreed with you?',
+          'Can you go one step further and explain why that happens?',
+          'What would change in your answer if the numbers or conditions here were different?',
+          'How would you defend that answer to someone who disagreed with you?',
         ]
-      : [
-          snippet
-            ? `Based on the material on "${snippet}...", can you explain the main idea in your own words?`
-            : `Can you explain the key idea from this part of ${subject} in your own words?`,
-          snippet
-            ? `The notes cover "${snippet}...". Walk me through how you'd use that to solve a typical ${subject} problem.`
-            : `Walk me through how you would approach a typical problem on this topic in ${subject}.`,
-          snippet
-            ? `Looking at "${snippet}...", what's the most important thing to remember here, and why?`
-            : `What is the most important thing to remember about this part of ${subject}, and why?`,
-        ];
+      : (MockProvider.SUBJECT_QUESTIONS[subject] ?? MockProvider.FALLBACK_QUESTIONS);
 
     const body = `[MOCK] ${bank[askedCount % bank.length]}`;
 

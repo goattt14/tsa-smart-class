@@ -70,20 +70,37 @@ function configuredName(): AiProviderName {
  * never be reachable before every real option has been exhausted, or a
  * misconfigured key would quietly serve placeholder text to a whole institute.
  */
-export function providerChain(): AiProviderName[] {
+export function providerChain(options?: {
+  allowMock?: boolean;
+}): AiProviderName[] {
   const primary = configuredName();
   const chain: AiProviderName[] = [primary];
 
   const alternates: AiProviderName[] = [];
-  if (env.OPENAI_API_KEY) alternates.push(AiProviderName.OPENAI);
-  if (env.ANTHROPIC_API_KEY) alternates.push(AiProviderName.ANTHROPIC);
-  if (env.GOOGLE_API_KEY) alternates.push(AiProviderName.GEMINI);
 
-  for (const alternate of alternates) {
-    if (!chain.includes(alternate)) chain.push(alternate);
+  if (env.OPENAI_API_KEY) {
+    alternates.push(AiProviderName.OPENAI);
   }
 
-  if (!chain.includes(AiProviderName.MOCK)) chain.push(AiProviderName.MOCK);
+  if (env.ANTHROPIC_API_KEY) {
+    alternates.push(AiProviderName.ANTHROPIC);
+  }
+
+  if (env.GOOGLE_API_KEY) {
+    alternates.push(AiProviderName.GEMINI);
+  }
+
+  for (const alternate of alternates) {
+    if (!chain.includes(alternate)) {
+      chain.push(alternate);
+    }
+  }
+
+  // Mock is optional and must never be used for real Viva assessment.
+  if (options?.allowMock !== false && !chain.includes(AiProviderName.MOCK)) {
+    chain.push(AiProviderName.MOCK);
+  }
+
   return chain;
 }
 

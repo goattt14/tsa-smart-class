@@ -195,7 +195,16 @@ export async function complete(
 ): Promise<CompletionResponse> {
   await assertWithinBudget();
 
-  const chain = providerChain();
+  // Viva must always use a real AI provider.
+  // Never allow the mock provider to generate questions,
+  // evaluate answers, or generate the final Viva report.
+  const isRealViva =
+    request.feature === AiFeature.VIVA_QUESTION ||
+    request.feature === AiFeature.VIVA_EVALUATION;
+
+  const chain = providerChain({
+    allowMock: !isRealViva,
+  });
   let lastError: AiError | null = null;
 
   for (const name of chain) {

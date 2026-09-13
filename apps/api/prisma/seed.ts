@@ -8,7 +8,7 @@
  * Set SEED_DEMO=false to load the baseline configuration without demo accounts,
  * which is what a real institute wants on its first production deploy.
  */
-import { PrismaClient, Role, StaffType, Gender, ParentRelation, AiFeature } from '@prisma/client';
+import { PrismaClient, Role, StaffType, Gender, ParentRelation, AiFeature, Weekday } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import crypto from 'node:crypto';
 import { PERMISSIONS, ROLE_MATRIX } from '../src/modules/auth/permissions.catalog';
@@ -962,6 +962,540 @@ async function main(): Promise<void> {
     }
   }
   console.log(`Viva sessions ready: ${vivaSpecs.length}`);
+  
+  // --------------------------------------------------------------- schedule --
+  // Weekly timetable, real class sessions, attendance history, homework,
+  // tests, learning recommendations, and notifications — so the student
+  // dashboard, Tests page, and teacher's schedule all show real content the
+  // moment someone signs in for a demo, not empty states.
+  const ROOM_BY_BATCH: Record<string, string> = {
+    'X-A': 'Room 201',
+    'X-B': 'Room 202',
+    'XII-A': 'Lab Block 1',
+  };
+
+  const SUBJECT_LABEL: Record<string, string> = {
+    PHY: 'Physics',
+    MATH: 'Mathematics',
+    CHEM: 'Chemistry',
+  };
+
+  const timetableGrid: Array<{
+    weekday: Weekday;
+    batch: string;
+    subject: string;
+    startMin: number;
+    endMin: number;
+  }> = [
+    { weekday: 'MON', batch: 'X-A', subject: 'PHY', startMin: 540, endMin: 600 },
+    { weekday: 'MON', batch: 'X-B', subject: 'PHY', startMin: 600, endMin: 660 },
+    { weekday: 'MON', batch: 'XII-A', subject: 'PHY', startMin: 660, endMin: 720 },
+    { weekday: 'TUE', batch: 'X-A', subject: 'MATH', startMin: 540, endMin: 600 },
+    { weekday: 'TUE', batch: 'X-B', subject: 'MATH', startMin: 600, endMin: 660 },
+    { weekday: 'TUE', batch: 'XII-A', subject: 'MATH', startMin: 660, endMin: 720 },
+    { weekday: 'WED', batch: 'X-A', subject: 'CHEM', startMin: 540, endMin: 600 },
+    { weekday: 'WED', batch: 'X-B', subject: 'CHEM', startMin: 600, endMin: 660 },
+    { weekday: 'WED', batch: 'XII-A', subject: 'CHEM', startMin: 660, endMin: 720 },
+    { weekday: 'THU', batch: 'X-A', subject: 'PHY', startMin: 540, endMin: 600 },
+    { weekday: 'THU', batch: 'X-B', subject: 'MATH', startMin: 600, endMin: 660 },
+    { weekday: 'THU', batch: 'XII-A', subject: 'CHEM', startMin: 660, endMin: 720 },
+    { weekday: 'FRI', batch: 'X-A', subject: 'MATH', startMin: 540, endMin: 600 },
+    { weekday: 'FRI', batch: 'X-B', subject: 'CHEM', startMin: 600, endMin: 660 },
+    { weekday: 'FRI', batch: 'XII-A', subject: 'PHY', startMin: 660, endMin: 720 },
+  ];
+
+  const scheduleEffectiveFrom = new Date(`${ACADEMIC_YEAR.slice(0, 4)}-04-01`);
+
+  // Teacher assignments: every teacher we seeded covers all three batches for
+  // their subject, matching the timetable grid below.
+  for (const code of ['PHY', 'MATH', 'CHEM']) {
+    const subjectId = subjects.get(code);
+    const teacherRef = teacherRefByCode.get(code);
+    if (!subjectId || !teacherRef) continue;
+
+    for (const batchCode of ['X-A', 'X-B', 'XII-A']) {
+      const batchId = batches.get(batchCode);
+      if (!batchId) continue;
+
+      await prisma.teacherAssignment.upsert({
+        where: {
+          teacherId_batchId_subjectId: { teacherId: teacherRef.teacherProfileId, batchId, subjectId },
+        },
+        update: {},
+        create: { teacherId: teacherRef.teacherProfileId, batchId, subjectId },
+      });
+    }
+  }
+
+  const timetableSlotIds = new Map<string, string>(); // key: `${batch}|${weekday}|${startMin}`
+
+  for (const slot of timetableGrid) {
+    const batchId = batches.get(slot.batch);
+    const subjectId = subjects.get(slot.subject);
+    const teacherRef = teacherRefByCode.get(slot.subject);
+    if (!batchId || !subjectId || !teacherRef) continue;
+
+    const record = await prisma.timetableSlot.upsert({
+      where: {
+        batchId_weekday_startTimeMin_effectiveFrom: {
+          batchId,
+          weekday: slot.weekday,
+          startTimeMin: slot.startMin,
+          effectiveFrom: scheduleEffectiveFrom,
+        },
+      },
+      update: { endTimeMin: slot.endMin, teacherId: teacherRef.teacherProfileId, subjectId },
+      create: {
+        batchId,
+        subjectId,
+        teacherId: teacherRef.teacherProfileId,
+        weekday: slot.weekday,
+        startTimeMin: slot.startMin,
+        endTimeMin: slot.endMin,
+        room: ROOM_BY_BATCH[slot.batch],
+        effectiveFrom: scheduleEffectiveFrom,
+      },
+      select: { id: true },
+    });
+    timetableSlotIds.set(`${slot.batch}|${slot.weekday}|${slot.startMin}`, record.id);
+  }
+  console.log(`Timetable ready: ${timetableGrid.length} weekly slots`);
+
+  // Real class sessions for the last two weeks (COMPLETED, with attendance)
+  // so "Today", attendance history, and teacher compliance all have content.
+  const WEEKDAY_BY_JS_DAY: Weekday[] = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+
+  const batchStudents = new Map<string, string[]>(); // batchCode -> studentProfile ids
+  for (const spec of studentSpecs) {
+    const studentId = studentIdByName.get(`${spec.first} ${spec.last}`);
+    if (!studentId) continue;
+    const list = batchStudents.get(spec.batch) ?? [];
+    list.push(studentId);
+    batchStudents.set(spec.batch, list);
+  }
+
+  let sessionsCreated = 0;
+  let attendanceCreated = 0;
+
+  for (let daysAgo = 13; daysAgo >= 0; daysAgo -= 1) {
+    const sessionDate = new Date();
+    sessionDate.setUTCHours(0, 0, 0, 0);
+    sessionDate.setUTCDate(sessionDate.getUTCDate() - daysAgo);
+    const weekday = WEEKDAY_BY_JS_DAY[sessionDate.getUTCDay()];
+
+    const slotsToday = timetableGrid.filter((s) => s.weekday === weekday);
+
+    for (const slot of slotsToday) {
+      const batchId = batches.get(slot.batch);
+      const subjectId = subjects.get(slot.subject);
+      const teacherRef = teacherRefByCode.get(slot.subject);
+      if (!batchId || !subjectId || !teacherRef) continue;
+
+      const slotId = timetableSlotIds.get(`${slot.batch}|${slot.weekday}|${slot.startMin}`);
+
+      const session = await prisma.classSession.upsert({
+        where: {
+          batchId_sessionDate_startTimeMin: { batchId, sessionDate, startTimeMin: slot.startMin },
+        },
+        update: {},
+        create: {
+          batchId,
+          subjectId,
+          teacherId: teacherRef.teacherProfileId,
+          timetableSlotId: slotId,
+          sessionDate,
+          startTimeMin: slot.startMin,
+          endTimeMin: slot.endMin,
+          room: ROOM_BY_BATCH[slot.batch],
+          status: 'COMPLETED',
+          actualStartAt: new Date(sessionDate.getTime() + slot.startMin * 60_000),
+          actualEndAt: new Date(sessionDate.getTime() + slot.endMin * 60_000),
+        },
+        select: { id: true },
+      });
+      sessionsCreated += 1;
+
+      // A daily log for everything but the last two days, so a teacher
+      // logging in still has a couple of real, outstanding action items.
+      if (daysAgo >= 2) {
+        await prisma.teacherDailyLog.upsert({
+          where: { classSessionId: session.id },
+          update: {},
+          create: {
+            classSessionId: session.id,
+            teacherId: teacherRef.teacherProfileId,
+            topic: `${SUBJECT_LABEL[slot.subject]} — regular class`,
+            description: 'Covered the scheduled syllabus topic for this session.',
+            dueAt: new Date(sessionDate.getTime() + (slot.endMin + 60) * 60_000),
+            submittedAt: new Date(sessionDate.getTime() + slot.endMin * 60_000),
+            compliance: 'ON_TIME',
+          },
+        });
+      }
+
+      // Attendance for every enrolled student, mostly present.
+      const studentIds = batchStudents.get(slot.batch) ?? [];
+      for (const [idx, studentId] of studentIds.entries()) {
+        const roll = (idx + daysAgo) % 20;
+        const status = roll === 0 ? 'ABSENT' : roll <= 2 ? 'LATE' : 'PRESENT';
+
+        await prisma.attendance.upsert({
+          where: { classSessionId_studentId: { classSessionId: session.id, studentId } },
+          update: {},
+          create: {
+            classSessionId: session.id,
+            studentId,
+            status,
+            source: 'TEACHER',
+            markedById: teacherRef.userId,
+            minutesLate: status === 'LATE' ? 5 : null,
+          },
+        });
+        attendanceCreated += 1;
+      }
+    }
+  }
+  console.log(`Class sessions ready: ${sessionsCreated}, attendance records: ${attendanceCreated}`);
+
+  // A self-study block for today for every student, so "Your day" always
+  // shows something below the class lane.
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+
+  for (const studentId of studentIdByName.values()) {
+    await prisma.selfStudySession.upsert({
+      where: {
+        studentId_studyDate_plannedStartMin: { studentId, studyDate: today, plannedStartMin: 1140 },
+      },
+      update: {},
+      create: {
+        studentId,
+        studyDate: today,
+        plannedStartMin: 1140, // 7:00 PM
+        plannedEndMin: 1260, // 9:00 PM
+        durationMin: 120,
+        status: 'SCHEDULED',
+      },
+    });
+  }
+  console.log(`Self-study sessions ready for today: ${studentIdByName.size}`);
+
+  // --------------------------------------------------------------- homework --
+  const homeworkSubjects = ['PHY', 'MATH', 'CHEM'];
+  const demoBatchStudent = [
+    { batch: 'X-A', student: 'Aarav Sharma' },
+    { batch: 'XII-A', student: 'Rehan Qureshi' },
+  ];
+
+  let assignmentsCreated = 0;
+
+  for (const { batch: batchCode, student: studentName } of demoBatchStudent) {
+    const batchId = batches.get(batchCode);
+    const studentId = studentIdByName.get(studentName);
+    if (!batchId || !studentId) continue;
+
+    for (const subjectCode of homeworkSubjects) {
+      const subjectId = subjects.get(subjectCode);
+      const teacherRef = teacherRefByCode.get(subjectCode);
+      if (!subjectId || !teacherRef) continue;
+
+      const subjectLabel = SUBJECT_LABEL[subjectCode];
+
+      // A past assignment, already graded.
+      const pastTitle = `${subjectLabel} worksheet — Chapter review`;
+      let pastAssignment = await prisma.assignment.findFirst({
+        where: { batchId, subjectId, title: pastTitle },
+        select: { id: true },
+      });
+      if (!pastAssignment) {
+        pastAssignment = await prisma.assignment.create({
+          data: {
+            batchId,
+            subjectId,
+            teacherId: teacherRef.teacherProfileId,
+            kind: 'HOMEWORK',
+            title: pastTitle,
+            instructions:
+              'Complete the chapter-review questions covering the topics discussed in class and submit before the deadline.',
+            maxMarks: 10,
+            dueAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+            isPublished: true,
+            publishedAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
+          },
+          select: { id: true },
+        });
+      }
+
+      await prisma.assignmentSubmission.upsert({
+        where: { assignmentId_studentId: { assignmentId: pastAssignment.id, studentId } },
+        update: {},
+        create: {
+          assignmentId: pastAssignment.id,
+          studentId,
+          status: 'GRADED',
+          contentText: 'Completed all questions and submitted before the deadline.',
+          submittedAt: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000),
+          marksAwarded: 8,
+          feedback: 'Good work overall — double check your working on the last question next time.',
+          gradedById: teacherRef.userId,
+          gradedAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000),
+        },
+      });
+
+      // An upcoming assignment, still pending.
+      const upcomingTitle = `${subjectLabel} worksheet — Practice set`;
+      const existingUpcoming = await prisma.assignment.findFirst({
+        where: { batchId, subjectId, title: upcomingTitle },
+        select: { id: true },
+      });
+      if (!existingUpcoming) {
+        await prisma.assignment.create({
+          data: {
+            batchId,
+            subjectId,
+            teacherId: teacherRef.teacherProfileId,
+            kind: 'HOMEWORK',
+            title: upcomingTitle,
+            instructions: 'Solve the attached practice set and submit your working for each question.',
+            maxMarks: 10,
+            dueAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+            isPublished: true,
+            publishedAt: new Date(),
+          },
+        });
+      }
+      assignmentsCreated += 2;
+    }
+  }
+  console.log(`Assignments ready: ${assignmentsCreated}`);
+
+  // --------------------------------------------------------------------- tests --
+  let testsCreated = 0;
+
+  for (const { batch: batchCode, student: studentName } of demoBatchStudent) {
+    const batchId = batches.get(batchCode);
+    const studentId = studentIdByName.get(studentName);
+    if (!batchId || !studentId) continue;
+
+    for (const subjectCode of homeworkSubjects) {
+      const subjectId = subjects.get(subjectCode);
+      const teacherRef = teacherRefByCode.get(subjectCode);
+      if (!subjectId || !teacherRef) continue;
+
+      const subjectLabel = SUBJECT_LABEL[subjectCode];
+
+      // --- a past, evaluated test ---
+      const pastTitle = `${subjectLabel} Unit Test 1`;
+      let pastTest = await prisma.test.findFirst({
+        where: { batchId, subjectId, title: pastTitle },
+        select: { id: true },
+      });
+
+      if (!pastTest) {
+        pastTest = await prisma.test.create({
+          data: {
+            batchId,
+            subjectId,
+            teacherId: teacherRef.teacherProfileId,
+            title: pastTitle,
+            description: `First unit test covering the topics taught so far in ${subjectLabel}.`,
+            type: 'UNIT_TEST',
+            scheduledAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+            durationMin: 45,
+            maxMarks: 30,
+            passingMarks: 12,
+            isPublished: true,
+            publishedAt: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000),
+            resultsPublished: true,
+          },
+          select: { id: true },
+        });
+
+        const testQuestionSpecs = [
+          { body: `A short-answer question on the core ideas of ${subjectLabel} covered this term.`, marks: 10 },
+          { body: 'A numerical or application problem drawing on the same topic.', marks: 10 },
+          { body: 'A short-answer question checking a related concept.', marks: 10 },
+        ];
+
+        for (const [index, q] of testQuestionSpecs.entries()) {
+          const question = await prisma.question.create({
+            data: {
+              subjectId,
+              type: 'SHORT_ANSWER',
+              difficulty: 'MEDIUM',
+              source: 'TEACHER',
+              body: q.body,
+              marks: q.marks,
+              isApproved: true,
+            },
+            select: { id: true },
+          });
+
+          await prisma.testQuestion.create({
+            data: { testId: pastTest.id, questionId: question.id, orderIndex: index, marks: q.marks },
+          });
+        }
+      }
+
+      const testQuestionRows = await prisma.testQuestion.findMany({
+        where: { testId: pastTest.id },
+        select: { id: true, marks: true },
+      });
+      const totalMarks = testQuestionRows.reduce((sum, q) => sum + (q.marks ?? 0), 0);
+      const scoredMarks = Math.round(totalMarks * 0.8);
+
+      const attempt = await prisma.testAttempt.upsert({
+        where: { testId_studentId: { testId: pastTest.id, studentId } },
+        update: {},
+        create: {
+          testId: pastTest.id,
+          studentId,
+          status: 'EVALUATED',
+          startedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+          submittedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000 + 40 * 60 * 1000),
+          evaluatedAt: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000),
+          timeTakenSec: 2400,
+          score: scoredMarks,
+          percentage: totalMarks > 0 ? Math.round((scoredMarks / totalMarks) * 1000) / 10 : 0,
+          rank: 2,
+          isPassed: scoredMarks >= 12,
+        },
+        select: { id: true },
+      });
+
+      for (const [index, tq] of testQuestionRows.entries()) {
+        const marksAwarded = Math.round((tq.marks ?? 0) * (index === 2 ? 0.6 : 0.9));
+        await prisma.testAnswer.upsert({
+          where: { attemptId_testQuestionId: { attemptId: attempt.id, testQuestionId: tq.id } },
+          update: {},
+          create: {
+            attemptId: attempt.id,
+            testQuestionId: tq.id,
+            inputMode: 'DIGITAL_TEXT',
+            responseText: 'Answer submitted during the test.',
+            marksAwarded,
+            isCorrect: marksAwarded >= (tq.marks ?? 0) * 0.8,
+            timeTakenSec: 700,
+          },
+        });
+      }
+
+      // --- an upcoming, published test ---
+      const upcomingTitle = `${subjectLabel} Unit Test 2`;
+      const existingUpcomingTest = await prisma.test.findFirst({
+        where: { batchId, subjectId, title: upcomingTitle },
+        select: { id: true },
+      });
+      if (!existingUpcomingTest) {
+        await prisma.test.create({
+          data: {
+            batchId,
+            subjectId,
+            teacherId: teacherRef.teacherProfileId,
+            title: upcomingTitle,
+            description: `Second unit test covering the more recent topics in ${subjectLabel}.`,
+            type: 'UNIT_TEST',
+            scheduledAt: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000),
+            durationMin: 45,
+            maxMarks: 30,
+            passingMarks: 12,
+            isPublished: true,
+            publishedAt: new Date(),
+          },
+        });
+      }
+      testsCreated += 2;
+    }
+  }
+  console.log(`Tests ready: ${testsCreated}`);
+
+  // ------------------------------------------------------- recommendations --
+  const recommendationSpecs = [
+    {
+      student: 'Aarav Sharma',
+      kind: 'REVISE_TOPIC' as const,
+      title: "Revisit Newton's Third Law",
+      reason:
+        'Recent viva answers showed some confusion between force direction and magnitude in action-reaction pairs.',
+    },
+    {
+      student: 'Aarav Sharma',
+      kind: 'PRACTICE_MORE' as const,
+      title: 'Practice more quadratic equation problems',
+      reason: 'A few extra practice questions on factoring and the discriminant would help ahead of the next test.',
+    },
+    {
+      student: 'Rehan Qureshi',
+      kind: 'ATTEMPT_VIVA' as const,
+      title: 'Try a Chemistry viva session',
+      reason: 'No viva attempts yet in Chemistry this term — a quick session would help surface any gaps early.',
+    },
+  ];
+
+  for (const spec of recommendationSpecs) {
+    const studentId = studentIdByName.get(spec.student);
+    if (!studentId) continue;
+
+    const existing = await prisma.learningRecommendation.findFirst({
+      where: { studentId, title: spec.title },
+      select: { id: true },
+    });
+    if (existing) continue;
+
+    await prisma.learningRecommendation.create({
+      data: { studentId, kind: spec.kind, title: spec.title, reason: spec.reason, priority: 50 },
+    });
+  }
+  console.log(`Learning recommendations ready: ${recommendationSpecs.length}`);
+
+  // --------------------------------------------------------------- notifications --
+  const notificationSpecs = [
+    {
+      student: 'Aarav Sharma',
+      category: 'TEST' as const,
+      title: 'Physics Unit Test 2 scheduled',
+      body: 'Your next Physics unit test is scheduled in a few days — check the Tests tab for details.',
+    },
+    {
+      student: 'Aarav Sharma',
+      category: 'HOMEWORK' as const,
+      title: 'Mathematics practice set due soon',
+      body: 'Your Mathematics practice set worksheet is due soon. Submit it from the Homework section.',
+    },
+    {
+      student: 'Rehan Qureshi',
+      category: 'RESULT' as const,
+      title: 'Chemistry Unit Test 1 result published',
+      body: 'Your result for Chemistry Unit Test 1 has been published — check the Tests tab to see your score.',
+    },
+  ];
+
+  for (const spec of notificationSpecs) {
+    const studentId = studentIdByName.get(spec.student);
+    if (!studentId) continue;
+
+    const profile = await prisma.studentProfile.findUnique({ where: { id: studentId }, select: { userId: true } });
+    if (!profile) continue;
+
+    const existing = await prisma.notification.findFirst({
+      where: { userId: profile.userId, title: spec.title },
+      select: { id: true },
+    });
+    if (existing) continue;
+
+    await prisma.notification.create({
+      data: {
+        userId: profile.userId,
+        category: spec.category,
+        channel: 'IN_APP',
+        title: spec.title,
+        body: spec.body,
+        sentAt: new Date(),
+        status: 'DELIVERED',
+      },
+    });
+  }
+  console.log(`Notifications ready: ${notificationSpecs.length}`);
 
   // --------------------------------------------------------------- summary --
   console.log('\n--------------------------------------------------------');

@@ -8,10 +8,11 @@
  * Set SEED_DEMO=false to load the baseline configuration without demo accounts,
  * which is what a real institute wants on its first production deploy.
  */
-import { PrismaClient, Role, StaffType, Gender, ParentRelation } from '@prisma/client';
+import { PrismaClient, Role, StaffType, Gender, ParentRelation, AiFeature } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import crypto from 'node:crypto';
 import { PERMISSIONS, ROLE_MATRIX } from '../src/modules/auth/permissions.catalog';
+import { embed } from '../src/ai/router';
 
 const prisma = new PrismaClient();
 
@@ -602,12 +603,21 @@ async function main(): Promise<void> {
     const uploadedById = teacherRef?.userId ?? adminUserId;
     if (!subjectId) continue;
 
-    for (const spec of subjectSpec.materials) {
-      const existing = await prisma.studyMaterial.findFirst({
-        where: { subjectId, title: spec.title },
-        select: { id: true },
-      });
-      if (existing) continue; // already seeded on a previous run
+        for (const spec of subjectSpec.materials) {
+      await prisma.studyMaterial.deleteMany({ where: { subjectId, title: spec.title } });
+
+      let vectors: number[][];
+      let embeddingModel = 'mock-embed-1';
+      try {
+        const result = await embed({ input: spec.chunks, feature: AiFeature.EMBEDDING });
+        vectors = result.vectors;
+        embeddingModel = result.model;
+      } catch (error) {
+        console.warn(
+          `  Falling back to mock embeddings for "${spec.title}": ${error instanceof Error ? error.message : error}`,
+        );
+        vectors = spec.chunks.map((content) => mockEmbedding(content));
+      }
 
       const material = await prisma.studyMaterial.create({
         data: {
@@ -633,8 +643,8 @@ async function main(): Promise<void> {
             chunkIndex: index,
             content,
             tokenCount: Math.ceil(content.length / 4),
-            embeddingJson: mockEmbedding(content),
-            embeddingModel: 'mock-embed-1',
+            embeddingJson: vectors[index] ?? mockEmbedding(content),
+            embeddingModel,
           },
         });
       }

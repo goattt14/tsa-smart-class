@@ -21,7 +21,7 @@ interface Material {
 export function MaterialsPage() {
   const { data, isPending, error, refetch } = useQuery({
     queryKey: keys.materials,
-    queryFn: () => apiGet<{ items: Material[] }>('/materials?pageSize=50'),
+        queryFn: () => apiGet<Material[]>('/materials?pageSize=50'),
   });
 
   if (isPending) return <Card><Skeleton rows={5} /></Card>;
@@ -34,14 +34,14 @@ export function MaterialsPage() {
       <Card>
         <CardHeader title="Available to you" hint="Uploaded by your teachers" />
 
-        {data.items.length === 0 ? (
+                {data.length === 0 ? (
           <EmptyState
             title="Nothing uploaded yet"
             body="Once your teacher uploads notes for your batch, they appear here and become the source the AI questions are drawn from."
           />
         ) : (
           <ul className="divide-y divide-line">
-            {data.items.map((item) => (
+                        {data.map((item) => (
               <li key={item.id} className="flex items-start gap-3 px-5 py-3.5">
                 <span
                   className="mt-1 h-8 w-1 shrink-0 rounded-full"
